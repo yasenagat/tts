@@ -62,10 +62,19 @@ qwen3-tts/
 
 ```powershell
 uv venv
-uv pip install -r requirements.txt
+uv pip install torch torchaudio transformers soundfile librosa numpy
 ```
 
-### 2. 下载模型
+### 2. 克隆 Qwen3-TTS 源码
+
+```powershell
+git clone https://github.com/QwenLM/Qwen3-TTS.git
+cd Qwen3-TTS
+uv pip install -e .
+cd ..
+```
+
+### 3. 下载模型
 
 使用 ModelScope 下载模型到本地：
 
