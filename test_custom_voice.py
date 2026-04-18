@@ -46,9 +46,9 @@ except Exception as e:
 p("\n4. 检查模型...")
 
 # 模型信息
-model_name = "Qwen/Qwen3-TTS-12Hz-1.7B-CustomVoice"
-local_model_name = "Qwen3-TTS-12Hz-1.7B-CustomVoice"
-local_model_path = "D:\model\Qwen3-TTS-12Hz-1.7B-CustomVoice"
+model_name = "Qwen/Qwen3-TTS-12Hz-0.6B-CustomVoice"
+local_model_name = "Qwen3-TTS-12Hz-0.6B-CustomVoice"
+local_model_path = r"D:\model\Qwen3-TTS-12Hz-0.6B-CustomVoice"
 
 # 检查本地模型
 if os.path.exists(local_model_path):
@@ -110,30 +110,91 @@ for speaker in chinese_speakers:
     
     try:
         # 生成语音
-        wavs, sr = model.generate_custom_voice(
+        start_time = torch.cuda.Event(enable_timing=True)
+        end_time = torch.cuda.Event(enable_timing=True)
+        start_time.record()
+        
+        result = model.generate_custom_voice(
             text=test_text,
             speaker=speaker_name,
+            instruct="体现撒娇稚嫩的萝莉女声，音调偏高且起伏明显，营造出黏人、做作又刻意卖萌的听觉效果。",
         )
+        
+        end_time.record()
+        torch.cuda.synchronize()
+        gen_time = start_time.elapsed_time(end_time) / 1000
+        
+        # 调试：检查返回的数据格式
+        p(f"   调试：result 类型 = {type(result)}")
+        if isinstance(result, tuple):
+            p(f"   调试：tuple 长度 = {len(result)}")
+            p(f"   调试：第一个元素类型 = {type(result[0])}")
+            if hasattr(result[0], 'shape'):
+                p(f"   调试：第一个元素 shape = {result[0].shape}")
+            if hasattr(result[0], 'dtype'):
+                p(f"   调试：第一个元素 dtype = {result[0].dtype}")
+        
+        # 处理返回结果
+        if isinstance(result, tuple) and len(result) == 2:
+            wavs, sr = result
+            p(f"   ✅ 语音生成成功!")
+            p(f"   耗时: {gen_time:.2f} 秒")
+            p(f"   采样率: {sr} Hz")
+            
+            # 确保 wavs 是 numpy 数组
+            import numpy as np
+            if not isinstance(wavs, np.ndarray):
+                if hasattr(wavs, 'cpu'):
+                    wavs = wavs.cpu().numpy()
+                elif isinstance(wavs, list) and len(wavs) > 0:
+                    wavs = np.array(wavs)
+            
+            audio_length = len(wavs) / sr if sr > 0 else 0
+            p(f"   音频长度: {audio_length:.2f} 秒")
+            p(f"   音频 shape: {wavs.shape if hasattr(wavs, 'shape') else 'N/A'}")
+            
+            # 保存文件
+            import soundfile as sf
+            output_file = f"test_{speaker_name}.wav"
+            
+            # 如果 wavs 是多维的，只取第一维
+            if hasattr(wavs, 'ndim') and wavs.ndim > 1:
+                wavs = wavs[0]
+            
+            sf.write(output_file, wavs, sr)
+            p(f"   保存到: {os.path.abspath(output_file)}")
 
-        p(f"   ✅ 语音生成成功!")
-        p(f"   采样率: {sr} Hz")
-        p(f"   音频长度: {len(wavs) / sr:.2f} 秒")
-
-        # 保存文件
-        import soundfile as sf
-        output_file = f"test_{speaker_name}.wav"
-        sf.write(output_file, wavs, sr)
-        p(f"   保存到: {os.path.abspath(output_file)}")
-
-        # 验证文件
-        if os.path.exists(output_file):
-            file_size = os.path.getsize(output_file)
-            p(f"   文件大小: {file_size / 1024:.1f} KB")
+            # 验证文件
+            if os.path.exists(output_file):
+                file_size = os.path.getsize(output_file)
+                p(f"   文件大小: {file_size / 1024:.1f} KB")
+            else:
+                p(f"   ❌ 文件保存失败!")
+            
+            # 播放音频
+            p("   正在播放音频...")
+            try:
+                if os.name == "nt":  # Windows
+                    import winsound
+                    winsound.PlaySound(output_file, winsound.SND_FILENAME)
+                    p("   ✅ 音频播放完成!")
+                else:
+                    import subprocess
+                    if os.uname().sysname == "Darwin":
+                        subprocess.run(["afplay", output_file])
+                    else:
+                        subprocess.run(["aplay", output_file])
+                    p("   ✅ 音频播放完成!")
+            except Exception as e:
+                p(f"   ⚠️  播放失败: {e}")
+                p("   ✅ 音频文件已生成，可手动播放")
         else:
-            p(f"   ❌ 文件保存失败!")
+            p(f"   ❌ 返回格式错误")
             
     except Exception as e:
         p(f"   ❌ 生成失败: {e}")
+        import traceback
+        p(traceback.format_exc())
 
 # 8. 测试完成
 p("\n" + "=" * 60)
