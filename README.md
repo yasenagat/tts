@@ -70,7 +70,7 @@ qwen3-tts/
 
 ```powershell
 uv venv
-uv pip install torch torchaudio transformers soundfile librosa numpy
+uv pip install -r requirements.txt
 ```
 
 ### 2. 克隆 Qwen3-TTS 源码
