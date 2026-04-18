@@ -11,7 +11,7 @@ os.environ["HF_HOME"] = "D:\\download\\huggingface"
 os.environ["TRANSFORMERS_CACHE"] = "D:\\download\\huggingface\\hub"
 os.environ["MODELSCOPE_CACHE"] = "D:\\download\\modelscope"
 
-log = open("test_result.txt", "w", encoding="utf-8")
+log = open("test_local_result.txt", "w", encoding="utf-8")
 def p(msg):
     print(msg)
     log.write(msg + "\n")
